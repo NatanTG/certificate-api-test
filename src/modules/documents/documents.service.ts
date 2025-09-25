@@ -7,6 +7,10 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as forge from 'node-forge';
+import { SignPdf } from '@signpdf/signpdf';
+import { P12Signer } from '@signpdf/signer-p12';
+import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import {
   DocumentUploadResponseDto,
   DocumentVerificationResponseDto,
@@ -158,9 +162,9 @@ export class DocumentsService {
       // Extrair informações do certificado
       const cpfCnpj = this.certificateHandler.extractCpfCnpj(certificate);
 
-      // Criar documento P7S completo usando abordagem simples
-      const signedDocumentP7S = this.createSimpleP7SDocument(documentBuffer, signatureData);
-      const signedDocumentData = Buffer.from(signedDocumentP7S).toString('base64');
+      // Criar PDF assinado PAdES-compliant
+      const signedDocumentPDF = await this.createSignedPDFDocument(documentBuffer, certificate, privateKey);
+      const signedDocumentData = Buffer.from(signedDocumentPDF).toString('base64');
 
       // Salvar assinatura no banco
       const signature = await this.prisma.icpSignature.create({
@@ -265,38 +269,114 @@ export class DocumentsService {
   }
 
   /**
-   * Cria um documento P7S simples que contém o documento original + assinatura
+   * Cria um PDF com assinatura PAdES-compliant usando @signpdf
    */
-  private createSimpleP7SDocument(
+  private async createSignedPDFDocument(
     originalDocument: Buffer,
-    signatureData: any
-  ): Buffer {
+    certificate: forge.pki.Certificate,
+    privateKey: forge.pki.PrivateKey
+  ): Promise<Buffer> {
     try {
-      // Criar estrutura P7S simples usando node-forge
-      const p7 = forge.pkcs7.createSignedData();
+      this.logger.debug('Criando PDF assinado PAdES-compliant');
 
-      // Adicionar conteúdo original como dados
-      p7.content = forge.util.createBuffer(originalDocument.toString('binary'));
+      // Verificar se o documento original é PDF
+      const isPDF = originalDocument.subarray(0, 4).toString('binary') === '%PDF';
 
-      // Decodificar assinatura PKCS#7 existente
-      const signatureBytes = forge.util.decode64(signatureData.signatureData);
-      const asn1 = forge.asn1.fromDer(signatureBytes);
-      const pkcs7Signature = forge.pkcs7.messageFromAsn1(asn1);
+      let pdfDoc: PDFDocument;
 
-      // Adicionar certificado e signer se disponíveis (com verificação de tipo)
-      const signedData = pkcs7Signature as any;
-      if (signedData.certificates && signedData.certificates.length > 0) {
-        signedData.certificates.forEach((cert: any) => p7.addCertificate(cert));
+      if (isPDF) {
+        // Documento já é PDF, carregar diretamente
+        pdfDoc = await PDFDocument.load(originalDocument);
+      } else {
+        // Documento não é PDF, criar um PDF wrapper simples
+        this.logger.debug('Documento não é PDF, criando wrapper PDF');
+        pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage();
+        page.drawText(`Documento Original: ${originalDocument.length} bytes`, {
+          x: 50,
+          y: 750,
+          size: 12,
+        });
+
+        // Adicionar conteúdo como anexo (para documentos pequenos de texto)
+        if (originalDocument.length < 1000) {
+          const textContent = originalDocument.toString('utf-8').substring(0, 500);
+          page.drawText(textContent, {
+            x: 50,
+            y: 700,
+            size: 10,
+            maxWidth: 500,
+          });
+        }
       }
 
-      // Converter para DER
-      const der = forge.asn1.toDer(p7.toAsn1());
-      return Buffer.from(der.getBytes(), 'binary');
+      // Adicionar placeholder de assinatura no PDF
+      pdflibAddPlaceholder({
+        pdfDoc,
+        reason: 'Assinatura Digital ICP-Brasil',
+        contactInfo: certificate.subject.getField('CN')?.value || 'Assinador ICP-Brasil',
+        name: certificate.subject.getField('CN')?.value || 'Assinatura Digital',
+        location: 'Brasil',
+      });
+
+      const pdfWithPlaceholder = await pdfDoc.save();
+
+      // Converter certificado e chave privada para formato P12
+      const p12Buffer = this.createP12Buffer(certificate, privateKey);
+
+      // Criar signer P12
+      const signer = new P12Signer(p12Buffer);
+
+      // Criar instância do SignPdf e assinar PDF
+      const signPdf = new SignPdf();
+      const signedPdf = await signPdf.sign(pdfWithPlaceholder, signer);
+
+      this.logger.debug('PDF assinado com sucesso usando PAdES');
+
+      // Salvar PDF assinado na pasta docs
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const certificateName = certificate.subject.getField('CN')?.value?.replace(/[^a-zA-Z0-9]/g, '_') || 'signed';
+      const filename = `${certificateName}_${timestamp}.pdf`;
+      const filePath = path.join(process.cwd(), 'docs', filename);
+
+      try {
+        fs.writeFileSync(filePath, Buffer.from(signedPdf));
+        this.logger.log(`PDF assinado salvo em: ${filePath}`);
+      } catch (error) {
+        this.logger.warn(`Erro ao salvar PDF em docs: ${error.message}`);
+      }
+
+      return Buffer.from(signedPdf);
 
     } catch (error) {
-      this.logger.error(`Erro ao criar P7S simples: ${error.message}`);
+      this.logger.error(`Erro ao criar PDF assinado PAdES: ${error.message}`);
       // Em caso de erro, retornar documento original
       return originalDocument;
+    }
+  }
+
+  /**
+   * Cria um buffer P12 a partir do certificado e chave privada
+   */
+  private createP12Buffer(certificate: forge.pki.Certificate, privateKey: forge.pki.PrivateKey): Buffer {
+    try {
+      // Criar estrutura PKCS#12 usando node-forge
+      const p12Asn1 = forge.pkcs12.toPkcs12Asn1(
+        privateKey as any, // Contornar problema de tipagem
+        certificate,
+        '',  // senha vazia para uso interno
+        {
+          generateLocalKeyId: true,
+          friendlyName: certificate.subject.getField('CN')?.value || 'ICP-Brasil Certificate'
+        }
+      );
+
+      // Converter para DER
+      const p12Der = forge.asn1.toDer(p12Asn1);
+      return Buffer.from(p12Der.getBytes(), 'binary');
+    } catch (error) {
+      this.logger.error(`Erro ao criar buffer P12: ${error.message}`);
+      throw error;
     }
   }
 

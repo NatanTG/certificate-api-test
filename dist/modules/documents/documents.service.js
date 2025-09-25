@@ -53,6 +53,10 @@ const crypto = __importStar(require("crypto"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const forge = __importStar(require("node-forge"));
+const signpdf_1 = require("@signpdf/signpdf");
+const signer_p12_1 = require("@signpdf/signer-p12");
+const placeholder_pdf_lib_1 = require("@signpdf/placeholder-pdf-lib");
+const pdf_lib_1 = require("pdf-lib");
 const icp_brasil_constants_1 = require("../../core/icp-brasil/constants/icp-brasil.constants");
 let DocumentsService = DocumentsService_1 = class DocumentsService {
     constructor(prisma, certificateHandler, signer, validator) {
@@ -141,8 +145,8 @@ let DocumentsService = DocumentsService_1 = class DocumentsService {
             }
             const signatureData = await this.signer.signDocument(documentBuffer, certificate, privateKey, hashAlgorithm);
             const cpfCnpj = this.certificateHandler.extractCpfCnpj(certificate);
-            const signedDocumentP7S = this.createSimpleP7SDocument(documentBuffer, signatureData);
-            const signedDocumentData = Buffer.from(signedDocumentP7S).toString('base64');
+            const signedDocumentPDF = await this.createSignedPDFDocument(documentBuffer, certificate, privateKey);
+            const signedDocumentData = Buffer.from(signedDocumentPDF).toString('base64');
             const signature = await this.prisma.icpSignature.create({
                 data: {
                     documentId: document.id,
@@ -230,23 +234,76 @@ let DocumentsService = DocumentsService_1 = class DocumentsService {
             throw error;
         }
     }
-    createSimpleP7SDocument(originalDocument, signatureData) {
+    async createSignedPDFDocument(originalDocument, certificate, privateKey) {
         try {
-            const p7 = forge.pkcs7.createSignedData();
-            p7.content = forge.util.createBuffer(originalDocument.toString('binary'));
-            const signatureBytes = forge.util.decode64(signatureData.signatureData);
-            const asn1 = forge.asn1.fromDer(signatureBytes);
-            const pkcs7Signature = forge.pkcs7.messageFromAsn1(asn1);
-            const signedData = pkcs7Signature;
-            if (signedData.certificates && signedData.certificates.length > 0) {
-                signedData.certificates.forEach((cert) => p7.addCertificate(cert));
+            this.logger.debug('Criando PDF assinado PAdES-compliant');
+            const isPDF = originalDocument.subarray(0, 4).toString('binary') === '%PDF';
+            let pdfDoc;
+            if (isPDF) {
+                pdfDoc = await pdf_lib_1.PDFDocument.load(originalDocument);
             }
-            const der = forge.asn1.toDer(p7.toAsn1());
-            return Buffer.from(der.getBytes(), 'binary');
+            else {
+                this.logger.debug('Documento não é PDF, criando wrapper PDF');
+                pdfDoc = await pdf_lib_1.PDFDocument.create();
+                const page = pdfDoc.addPage();
+                page.drawText(`Documento Original: ${originalDocument.length} bytes`, {
+                    x: 50,
+                    y: 750,
+                    size: 12,
+                });
+                if (originalDocument.length < 1000) {
+                    const textContent = originalDocument.toString('utf-8').substring(0, 500);
+                    page.drawText(textContent, {
+                        x: 50,
+                        y: 700,
+                        size: 10,
+                        maxWidth: 500,
+                    });
+                }
+            }
+            (0, placeholder_pdf_lib_1.pdflibAddPlaceholder)({
+                pdfDoc,
+                reason: 'Assinatura Digital ICP-Brasil',
+                contactInfo: certificate.subject.getField('CN')?.value || 'Assinador ICP-Brasil',
+                name: certificate.subject.getField('CN')?.value || 'Assinatura Digital',
+                location: 'Brasil',
+            });
+            const pdfWithPlaceholder = await pdfDoc.save();
+            const p12Buffer = this.createP12Buffer(certificate, privateKey);
+            const signer = new signer_p12_1.P12Signer(p12Buffer);
+            const signPdf = new signpdf_1.SignPdf();
+            const signedPdf = await signPdf.sign(pdfWithPlaceholder, signer);
+            this.logger.debug('PDF assinado com sucesso usando PAdES');
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const certificateName = certificate.subject.getField('CN')?.value?.replace(/[^a-zA-Z0-9]/g, '_') || 'signed';
+            const filename = `${certificateName}_${timestamp}.pdf`;
+            const filePath = path.join(process.cwd(), 'docs', filename);
+            try {
+                fs.writeFileSync(filePath, Buffer.from(signedPdf));
+                this.logger.log(`PDF assinado salvo em: ${filePath}`);
+            }
+            catch (error) {
+                this.logger.warn(`Erro ao salvar PDF em docs: ${error.message}`);
+            }
+            return Buffer.from(signedPdf);
         }
         catch (error) {
-            this.logger.error(`Erro ao criar P7S simples: ${error.message}`);
+            this.logger.error(`Erro ao criar PDF assinado PAdES: ${error.message}`);
             return originalDocument;
+        }
+    }
+    createP12Buffer(certificate, privateKey) {
+        try {
+            const p12Asn1 = forge.pkcs12.toPkcs12Asn1(privateKey, certificate, '', {
+                generateLocalKeyId: true,
+                friendlyName: certificate.subject.getField('CN')?.value || 'ICP-Brasil Certificate'
+            });
+            const p12Der = forge.asn1.toDer(p12Asn1);
+            return Buffer.from(p12Der.getBytes(), 'binary');
+        }
+        catch (error) {
+            this.logger.error(`Erro ao criar buffer P12: ${error.message}`);
+            throw error;
         }
     }
     async downloadSignedDocument(documentId, userId) {

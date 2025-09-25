@@ -13,7 +13,8 @@ export declare class DocumentsService {
     uploadDocument(file: Express.Multer.File, userId: string): Promise<DocumentUploadResponseDto>;
     signDocument(documentId: string, certificateFile: Express.Multer.File, certificatePassword: string, userId: string, hashAlgorithm?: string): Promise<DocumentSigningResponseDto>;
     verifyDocument(documentId: string, userId: string): Promise<DocumentVerificationResponseDto>;
-    private createSimpleP7SDocument;
+    private createSignedPDFDocument;
+    private createP12Buffer;
     downloadSignedDocument(documentId: string, userId: string): Promise<Buffer>;
     getUserDocuments(userId: string): Promise<UserDocumentsResponseDto>;
 }
