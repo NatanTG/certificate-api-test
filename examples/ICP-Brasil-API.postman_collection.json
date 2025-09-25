@@ -1,0 +1,1088 @@
+{
+  "info": {
+    "name": "🔐 API ICP-Brasil - Assinatura Digital",
+    "description": "# 📋 Collection Completa - API de Assinatura Digital ICP-Brasil\n\n> **Collection oficial** para testar e integrar com a API de assinatura digital compatível com padrões **ICP-Brasil** (PKCS#7/CAdES)\n\n---\n\n## 🚀 Quick Start\n\n### 1️⃣ Configurar Ambiente\n- Execute: `Setup & Auth > Environment Setup`\n- Altere variável `current_environment` se necessário\n- Ambientes: `development`, `production`, `staging`\n\n### 2️⃣ Autenticar\n- Execute: `Setup & Auth > Health Check`\n- Execute: `Setup & Auth > Login`\n\n### 3️⃣ Fluxo Completo\n1. `Documents Management > Upload Document`\n2. `Digital Signature > Sign Document with ICP-Brasil`\n3. `Document Verification > Verify Document Signatures`\n4. `Document Verification > Detailed Signature Validation`\n5. `Documents Management > Download Signed Document`\n\n---\n\n## 🔧 Configurações\n\n### **Variáveis Principais**\n| Variável | Descrição | Valor Padrão |\n|----------|-----------|-------------|\n| `base_url` | URL da API | `http://localhost:3000/api` |\n| `current_environment` | Ambiente atual | `development` |\n| `test_user_email` | Email de teste | `admin@test.com` |\n| `hash_algorithm` | Algoritmo de hash | `SHA-256` |\n\n### **Ambientes Suportados**\n- 🔧 **Development**: `localhost:3000` (desenvolvimento local)\n- 🐳 **Production**: `localhost:80` (Docker produção)\n- 🌐 **Staging**: Personalizável para homologação\n\n---\n\n## 📊 Funcionalidades\n\n### ✅ **Autenticação JWT**\n- Login/logout automático\n- Token persistente entre requests\n- Renovação automática\n\n### ✅ **Gestão de Documentos**\n- Upload seguro (PDF, DOC, TXT)\n- Listagem com filtros\n- Download de documentos assinados (.p7s)\n\n### ✅ **Assinatura Digital ICP-Brasil**\n- Certificados A1, A3, A4\n- Algoritmos: SHA-256, SHA-384, SHA-512\n- Validação completa da cadeia\n- Verificação de LCR em tempo real\n\n### ✅ **Verificação Avançada**\n- Validação de assinaturas\n- Análise detalhada de certificados\n- Relatórios de conformidade\n- Métricas de performance\n\n### ✅ **Automação & Testes**\n- Fluxo completo automatizado\n- Testes de performance\n- Processamento em lote\n- Cenários de erro\n\n---\n\n## 📁 Arquivos Necessários\n\n### **Para Upload**\n- `examples/test-document.pdf` - Documento de teste\n\n### **Para Assinatura**\n- `examples/test-certificate.p12` - Certificado ICP-Brasil\n- Senha padrão: `test123` (configurável)\n\n---\n\n## 🛠️ Troubleshooting\n\n### **Problemas Comuns**\n\n#### ❌ \"Token não encontrado\"\n- **Solução**: Execute `Setup & Auth > Login` primeiro\n\n#### ❌ \"API indisponível\"\n- **Solução**: Verifique se a API está rodando\n- **Comando**: `make dev` ou `npm run start:dev`\n\n#### ❌ \"Certificado inválido\"\n- **Solução**: Use certificado ICP-Brasil válido (.p12/.pfx)\n- **Verificar**: Data de validade e senha\n\n#### ❌ \"Erro de ambiente\"\n- **Solução**: Execute `Setup & Auth > Environment Setup`\n- **Verificar**: Variável `current_environment`\n\n---\n\n## 📞 Suporte\n\n### **Documentação Completa**\n- 📖 [API-USAGE.md](./API-USAGE.md) - Guia detalhado\n- 📋 [README.md](./README.md) - Instruções de instalação\n- 🐳 [Docker Guide](./DOCKER-COLLECTION-SUMMARY.md) - Deploy e produção\n\n### **Recursos Técnicos**\n- 🏛️ [ITI - Instituto Nacional de TI](https://iti.gov.br)\n- 📜 [Padrões ICP-Brasil](https://www.gov.br/iti/pt-br)\n- 🔍 [Swagger UI](http://localhost:3000/api/docs) - Documentação interativa\n\n---\n\n**⚡ Collection criada automaticamente pela API ICP-Brasil**  \n**🤖 Gerada com [Claude Code](https://claude.ai/code)**",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "12345"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Script global executado antes de cada requisição",
+          "// Verificar se temos token para requests autenticados",
+        "const authRequiredEndpoints = [",
+          "    '/documents/',",
+          "    '/users/',",
+          "    '/auth/logout'",
+          "];",
+          "",
+          "const currentUrl = pm.request.url.toString();",
+          "const needsAuth = authRequiredEndpoints.some(endpoint => currentUrl.includes(endpoint));",
+          "",
+          "if (needsAuth && !pm.globals.get('token')) {",
+          "    console.log('⚠️ Token não encontrado. Execute o login primeiro.');",
+          "}",
+          "",
+          "// Log da requisição",
+          "console.log(`🌐 ${pm.request.method} ${pm.request.url}`);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Script global executado após cada resposta",
+          "",
+          "// Log da resposta",
+          "console.log(`${pm.response.code} ${pm.response.status}`);",
+          "",
+          "// Verificações básicas",
+          "if (pm.response.code >= 200 && pm.response.code < 300) {",
+          "    console.log('✅ Sucesso');",
+          "} else {",
+          "    console.log('❌ Erro:', pm.response.json().message || 'Erro desconhecido');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string",
+      "description": "URL base da API (desenvolvimento local)"
+    },
+    {
+      "key": "base_url_prod",
+      "value": "http://localhost/api",
+      "type": "string",
+      "description": "URL base da API (produção Docker)"
+    },
+    {
+      "key": "base_url_staging",
+      "value": "https://staging-icp.exemplo.com/api",
+      "type": "string",
+      "description": "URL base da API (ambiente de staging)"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "Token JWT de autenticação (preenchido automaticamente)"
+    },
+    {
+      "key": "document_id",
+      "value": "",
+      "type": "string",
+      "description": "ID do documento (preenchido após upload)"
+    },
+    {
+      "key": "signature_id",
+      "value": "",
+      "type": "string",
+      "description": "ID da assinatura (preenchido após assinatura)"
+    },
+    {
+      "key": "test_user_email",
+      "value": "admin@test.com",
+      "type": "string",
+      "description": "Email do usuário de teste"
+    },
+    {
+      "key": "test_user_password",
+      "value": "admin123",
+      "type": "string",
+      "description": "Senha do usuário de teste"
+    },
+    {
+      "key": "certificate_password",
+      "value": "test123",
+      "type": "string",
+      "description": "Senha padrão do certificado de teste"
+    },
+    {
+      "key": "hash_algorithm",
+      "value": "SHA-256",
+      "type": "string",
+      "description": "Algoritmo de hash padrão (SHA-256, SHA-384, SHA-512)"
+    },
+    {
+      "key": "max_file_size",
+      "value": "52428800",
+      "type": "string",
+      "description": "Tamanho máximo de arquivo em bytes (50MB)"
+    },
+    {
+      "key": "api_timeout",
+      "value": "30000",
+      "type": "string",
+      "description": "Timeout para requisições da API em ms"
+    },
+    {
+      "key": "current_environment",
+      "value": "development",
+      "type": "string",
+      "description": "Ambiente atual (development, production, staging)"
+    }
+  ],
+  "item": [
+    {
+      "name": "Setup & Auth",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('API está disponível', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Resposta é texto', function () {",
+                  "    pm.response.to.be.text;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verificar se a API está disponível e funcionando"
+          }
+        },
+        {
+          "name": "Environment Setup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Script para configuração de ambiente",
+                  "console.log('⚙️ Configurando ambiente da API...');",
+                  "",
+                  "// Opções de ambiente disponíveis",
+                  "const environments = {",
+                  "    development: pm.collectionVariables.get('base_url'),",
+                  "    production: pm.collectionVariables.get('base_url_prod'),",
+                  "    staging: pm.collectionVariables.get('base_url_staging')",
+                  "};",
+                  "",
+                  "// Mostrar configurações atuais",
+                  "console.log('🏗️ Ambientes disponíveis:');",
+                  "console.log('========================');",
+                  "Object.entries(environments).forEach(([env, url]) => {",
+                  "    const current = pm.collectionVariables.get('current_environment') === env ? ' ← ATUAL' : '';",
+                  "    console.log(`${env}: ${url}${current}`);",
+                  "});",
+                  "",
+                  "// Configurações atuais",
+                  "const currentConfig = {",
+                  "    environment: pm.collectionVariables.get('current_environment'),",
+                  "    base_url: pm.collectionVariables.get('base_url'),",
+                  "    user: pm.collectionVariables.get('test_user_email'),",
+                  "    hash_algorithm: pm.collectionVariables.get('hash_algorithm'),",
+                  "    timeout: pm.collectionVariables.get('api_timeout')",
+                  "};",
+                  "",
+                  "console.log('\\n🔧 Configuração atual:');",
+                  "console.log('=====================');",
+                  "Object.entries(currentConfig).forEach(([key, value]) => {",
+                  "    console.log(`${key}: ${value}`);",
+                  "});",
+                  "",
+                  "console.log('\\n✅ Configuração de ambiente concluída!');",
+                  "console.log('💡 Para alterar o ambiente, modifique a variável \"current_environment\"');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Configurar e verificar ambiente da API\\n\\n**Ambientes disponíveis:**\\n- development: Desenvolvimento local (porta 3000)\\n- production: Docker produção (porta 80)\\n- staging: Ambiente de homologação\\n\\n**Como alterar:**\\n1. Vá em Variables da Collection\\n2. Altere o valor de 'current_environment'\\n3. Execute este request novamente\\n\\n**Variáveis configuráveis:**\\n- URLs dos ambientes\\n- Credenciais de teste\\n- Timeouts\\n- Algoritmos de hash"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login bem-sucedido', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Token recebido', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    ",
+                  "    // Salvar token para uso posterior",
+                  "    pm.globals.set('token', jsonData.access_token);",
+                  "    pm.collectionVariables.set('token', jsonData.access_token);",
+                  "    ",
+                  "    console.log('🔐 Token salvo:', jsonData.access_token.substring(0, 20) + '...');",
+                  "});",
+                  "",
+                  "pm.test('Dados do usuário retornados', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "    pm.expect(jsonData.user).to.have.property('email');",
+                  "    pm.expect(jsonData.user).to.have.property('name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_user_email}}\",\n  \"password\": \"{{test_user_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Realizar login na API e obter token JWT"
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout bem-sucedido', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Mensagem de confirmação', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "// Limpar token após logout",
+                  "pm.globals.unset('token');",
+                  "pm.collectionVariables.set('token', '');",
+                  "console.log('🚪 Token removido após logout');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Realizar logout da API"
+          }
+        }
+      ],
+      "description": "Endpoints para configuração inicial e autenticação"
+    },
+    {
+      "name": "Documents Management",
+      "item": [
+        {
+          "name": "Upload Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Upload bem-sucedido', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Document ID retornado', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('documentId');",
+                  "    ",
+                  "    // Salvar document ID para uso posterior",
+                  "    pm.globals.set('document_id', jsonData.documentId);",
+                  "    pm.collectionVariables.set('document_id', jsonData.documentId);",
+                  "    ",
+                  "    console.log('📄 Document ID salvo:', jsonData.documentId);",
+                  "});",
+                  "",
+                  "pm.test('Dados do arquivo retornados', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('filename');",
+                  "    pm.expect(jsonData).to.have.property('hash');",
+                  "    pm.expect(jsonData).to.have.property('size');",
+                  "    pm.expect(jsonData).to.have.property('uploadedAt');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "examples/test-document.pdf",
+                  "description": "Arquivo para upload (PDF, DOC, TXT)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/documents/upload",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documents",
+                "upload"
+              ]
+            },
+            "description": "Fazer upload de um documento para posterior assinatura\n\n**Instruções:**\n1. Clique em 'Body' > 'form-data'\n2. Selecione 'File' no campo 'file'\n3. Escolha um arquivo PDF, DOC ou TXT\n4. Execute a requisição\n\n**Formatos aceitos:** PDF, DOC, DOCX, TXT\n**Tamanho máximo:** 50MB"
+          }
+        },
+        {
+          "name": "List My Documents",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Listagem bem-sucedida', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Array de documentos retornado', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('documents');",
+                  "    pm.expect(jsonData.documents).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Estrutura dos documentos válida', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.documents.length > 0) {",
+                  "        const doc = jsonData.documents[0];",
+                  "        pm.expect(doc).to.have.property('id');",
+                  "        pm.expect(doc).to.have.property('filename');",
+                  "        pm.expect(doc).to.have.property('uploadedAt');",
+                  "        pm.expect(doc).to.have.property('signaturesCount');",
+                  "    }",
+                  "});",
+                  "",
+                  "// Log da quantidade de documentos",
+                  "const jsonData = pm.response.json();",
+                  "console.log(`📋 ${jsonData.documents.length} documento(s) encontrado(s)`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/my-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "my-documents"
+              ]
+            },
+            "description": "Listar todos os documentos do usuário autenticado"
+          }
+        },
+        {
+          "name": "Download Signed Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Download bem-sucedido', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Arquivo binário recebido', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/octet-stream');",
+                  "});",
+                  "",
+                  "pm.test('Header de download presente', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment');",
+                  "});",
+                  "",
+                  "// Log do tamanho do arquivo",
+                  "const contentLength = pm.response.headers.get('Content-Length');",
+                  "if (contentLength) {",
+                  "    console.log(`📥 Arquivo baixado: ${contentLength} bytes`);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/download/signed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documents",
+                "{{document_id}}",
+                "download",
+                "signed"
+              ]
+            },
+            "description": "Baixar documento com todas as assinaturas digitais embarcadas (formato P7S)\n\n**Nota:** O document_id é preenchido automaticamente após o upload.\nSe não funcionar, copie o ID manualmente da resposta do upload."
+          }
+        }
+      ],
+      "description": "Endpoints para gestão de documentos (upload, listagem, download)"
+    },
+    {
+      "name": "Digital Signature",
+      "item": [
+        {
+          "name": "Sign Document with ICP-Brasil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Assinatura bem-sucedida', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Signature ID retornado', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('signatureId');",
+                  "    ",
+                  "    // Salvar signature ID",
+                  "    pm.globals.set('signature_id', jsonData.signatureId);",
+                  "    pm.collectionVariables.set('signature_id', jsonData.signatureId);",
+                  "    ",
+                  "    console.log('🔐 Signature ID salvo:', jsonData.signatureId);",
+                  "});",
+                  "",
+                  "pm.test('Informações do certificado retornadas', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('certificateInfo');",
+                  "    pm.expect(jsonData.certificateInfo).to.have.property('subject');",
+                  "    pm.expect(jsonData.certificateInfo).to.have.property('issuer');",
+                  "    pm.expect(jsonData.certificateInfo).to.have.property('serialNumber');",
+                  "});",
+                  "",
+                  "pm.test('Data de assinatura presente', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('signedAt');",
+                  "});",
+                  "",
+                  "pm.test('Padrão ICP-Brasil confirmado', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('standard');",
+                  "    pm.expect(jsonData.standard).to.eql('ICP-Brasil');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "certificate",
+                  "type": "file",
+                  "src": "examples/test-certificate.p12",
+                  "description": "Certificado ICP-Brasil (.p12 ou .pfx)"
+                },
+                {
+                  "key": "certificatePassword",
+                  "value": "{{certificate_password}}",
+                  "type": "text",
+                  "description": "Senha do certificado digital"
+                },
+                {
+                  "key": "hashAlgorithm",
+                  "value": "{{hash_algorithm}}",
+                  "type": "text",
+                  "description": "Algoritmo de hash (SHA-256, SHA-384, SHA-512)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/sign-icp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documents",
+                "{{document_id}}",
+                "sign-icp"
+              ]
+            },
+            "description": "Assinar documento usando certificado digital ICP-Brasil\n\n**Instruções:**\n1. Faça upload de um documento primeiro\n2. Configure os campos no Body:\n   - certificate: Selecione seu certificado .p12/.pfx\n   - certificatePassword: Digite a senha do certificado\n   - hashAlgorithm: Deixe SHA-256 (padrão)\n\n**Formatos aceitos:** .p12, .pfx\n**Algoritmos:** SHA-256, SHA-384, SHA-512"
+          }
+        }
+      ],
+      "description": "Endpoints para assinatura digital com certificados ICP-Brasil"
+    },
+    {
+      "name": "Document Verification",
+      "item": [
+        {
+          "name": "Verify Document Signatures",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Verificação bem-sucedida', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Informações do documento retornadas', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('documentId');",
+                  "    pm.expect(jsonData).to.have.property('documentHash');",
+                  "    pm.expect(jsonData).to.have.property('totalSignatures');",
+                  "});",
+                  "",
+                  "pm.test('Array de assinaturas presente', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('signatures');",
+                  "    pm.expect(jsonData.signatures).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Estrutura das assinaturas válida', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.signatures.length > 0) {",
+                  "        const sig = jsonData.signatures[0];",
+                  "        pm.expect(sig).to.have.property('signatureId');",
+                  "        pm.expect(sig).to.have.property('certificateInfo');",
+                  "        pm.expect(sig).to.have.property('isValid');",
+                  "        pm.expect(sig).to.have.property('validationDetails');",
+                  "        pm.expect(sig).to.have.property('signedAt');",
+                  "    }",
+                  "});",
+                  "",
+                  "// Log das assinaturas encontradas",
+                  "const jsonData = pm.response.json();",
+                  "console.log(`🔍 ${jsonData.totalSignatures} assinatura(s) encontrada(s)`);",
+                  "",
+                  "jsonData.signatures.forEach((sig, index) => {",
+                  "    console.log(`🔐 Assinatura ${index + 1}:`);",
+                  "    console.log(`  Válida: ${sig.isValid}`);",
+                  "    console.log(`  Signatário: ${sig.certificateInfo.subject}`);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/documents/{{document_id}}/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documents",
+                "{{document_id}}",
+                "verify"
+              ]
+            },
+            "description": "Verificar todas as assinaturas digitais de um documento\n\nRetorna informações detalhadas sobre:\n- Validade das assinaturas\n- Informações dos certificados\n- Cadeia de certificação\n- Status de revogação\n- Validade temporal"
+          }
+        }
+        ,
+        {
+          "name": "Detailed Signature Validation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Validação detalhada bem-sucedida', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Informações detalhadas retornadas', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('signatureId');",
+                  "    pm.expect(jsonData).to.have.property('isValid');",
+                  "    pm.expect(jsonData).to.have.property('validationDetails');",
+                  "});",
+                  "",
+                  "pm.test('Detalhes de certificação presentes', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const details = jsonData.validationDetails;",
+                  "    pm.expect(details).to.have.property('certificateChain');",
+                  "    pm.expect(details).to.have.property('revocationStatus');",
+                  "    pm.expect(details).to.have.property('timeValidation');",
+                  "    pm.expect(details).to.have.property('trustAnchor');",
+                  "});",
+                  "",
+                  "pm.test('Informações ICP-Brasil específicas', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('icpBrasilInfo');",
+                  "    const icpInfo = jsonData.icpBrasilInfo;",
+                  "    pm.expect(icpInfo).to.have.property('policyOID');",
+                  "    pm.expect(icpInfo).to.have.property('certificateLevel');",
+                  "});",
+                  "",
+                  "// Log detalhado da validação",
+                  "const jsonData = pm.response.json();",
+                  "console.log('🔍 Validação Detalhada:');",
+                  "console.log('====================');",
+                  "console.log(`✅ Válida: ${jsonData.isValid}`);",
+                  "console.log(`🔗 Cadeia OK: ${jsonData.validationDetails.certificateChain.isValid}`);",
+                  "console.log(`❌ Revogada: ${jsonData.validationDetails.revocationStatus.isRevoked}`);",
+                  "console.log(`⏰ Tempo OK: ${jsonData.validationDetails.timeValidation.isValid}`);",
+                  "console.log(`🏛️ AC-Raiz: ${jsonData.validationDetails.trustAnchor.isICPBrasil}`);",
+                  "console.log(`📜 Nível: ${jsonData.icpBrasilInfo.certificateLevel}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \\\"includeChain\\\": true,\\n  \\\"validateRevocation\\\": true,\\n  \\\"includeTimestamp\\\": true\\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/signatures/{{signature_id}}/validate-detailed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "signatures",
+                "{{signature_id}}",
+                "validate-detailed"
+              ]
+            },
+            "description": "Realizar validação detalhada de uma assinatura específica\\n\\n**Inclui:**\\n- Validação completa da cadeia de certificação\\n- Verificação de status de revogação (LCR)\\n- Validação temporal\\n- Informações específicas ICP-Brasil\\n- Detalhes técnicos da assinatura\\n\\n**Opções no body:**\\n- includeChain: Incluir detalhes da cadeia\\n- validateRevocation: Verificar revogação\\n- includeTimestamp: Incluir validação de timestamp"
+          }
+        }
+      ],
+      "description": "Endpoints para verificação de assinaturas digitais"
+    },
+    {
+      "name": "Testing Scenarios",
+      "item": [
+        {
+          "name": "Complete Flow Test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Este é um teste do fluxo completo",
+                  "// Execute os requests em ordem:",
+                  "// 1. Login",
+                  "// 2. Upload Document",
+                  "// 3. Sign Document",
+                  "// 4. Verify Document",
+                  "// 5. Download Document",
+                  "",
+                  "console.log('🧪 Executando teste do fluxo completo');",
+                  "",
+                  "// Verificar se temos os IDs necessários",
+                  "const token = pm.globals.get('token');",
+                  "const documentId = pm.globals.get('document_id');",
+                  "",
+                  "if (!token) {",
+                  "    throw new Error('❌ Token não encontrado. Execute o Login primeiro.');",
+                  "}",
+                  "",
+                  "if (!documentId) {",
+                  "    throw new Error('❌ Document ID não encontrado. Faça upload de um documento primeiro.');",
+                  "}",
+                  "",
+                  "console.log('✅ Pré-requisitos OK');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Testes específicos do fluxo completo",
+                  "pm.test('Fluxo executado com sucesso', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Relatório final",
+                  "const token = pm.globals.get('token');",
+                  "const documentId = pm.globals.get('document_id');",
+                  "const signatureId = pm.globals.get('signature_id');",
+                  "",
+                  "console.log('📊 Relatório do Fluxo Completo:');",
+                  "console.log('================================');",
+                  "console.log(`🔐 Token: ${token ? '✅ OK' : '❌ Ausente'}`);",
+                  "console.log(`📄 Document ID: ${documentId || 'N/A'}`);",
+                  "console.log(`🖋️  Signature ID: ${signatureId || 'N/A'}`);",
+                  "",
+                  "if (token && documentId) {",
+                  "    console.log('🎉 Fluxo básico completo!');",
+                  "    if (signatureId) {",
+                  "        console.log('🎉 Fluxo de assinatura também completo!');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/my-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "my-documents"
+              ]
+            },
+            "description": "Endpoint para testar se o fluxo completo foi executado corretamente\n\n**Como usar:**\n1. Execute todos os requests anteriores em ordem\n2. Execute este request para verificar o status\n3. Veja o console para o relatório completo\n\n**Ordem recomendada:**\n1. Setup & Auth > Health Check\n2. Setup & Auth > Login\n3. Documents Management > Upload Document\n4. Digital Signature > Sign Document with ICP-Brasil\n5. Document Verification > Verify Document Signatures\n6. Document Verification > Detailed Signature Validation\n7. Documents Management > Download Signed Document"
+          }
+        },
+        {
+          "name": "Batch Document Processing Test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Script para teste de processamento em lote",
+                  "console.log('🚀 Iniciando teste de processamento em lote');",
+                  "",
+                  "// Verificar token",
+                  "const token = pm.globals.get('token');",
+                  "if (!token) {",
+                  "    throw new Error('❌ Token não encontrado. Execute o Login primeiro.');",
+                  "}",
+                  "",
+                  "// Configurar contador de documentos",
+                  "pm.globals.set('batch_test_documents', '[]');",
+                  "pm.globals.set('batch_test_count', 0);",
+                  "",
+                  "console.log('✅ Configuração inicial do lote OK');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Processamento em lote funcionando', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Processar documentos encontrados",
+                  "const jsonData = pm.response.json();",
+                  "const documents = jsonData.documents || [];",
+                  "",
+                  "pm.test('Documentos encontrados para lote', function () {",
+                  "    pm.expect(documents).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Análise estatística dos documentos",
+                  "const stats = {",
+                  "    total: documents.length,",
+                  "    signed: documents.filter(doc => doc.isFullySigned).length,",
+                  "    unsigned: documents.filter(doc => !doc.isFullySigned).length,",
+                  "    withSignatures: documents.filter(doc => doc.signaturesCount > 0).length",
+                  "};",
+                  "",
+                  "console.log('📊 Estatísticas do Lote:');",
+                  "console.log('=====================');",
+                  "console.log(`📄 Total de documentos: ${stats.total}`);",
+                  "console.log(`✅ Totalmente assinados: ${stats.signed}`);",
+                  "console.log(`⚠️ Não assinados: ${stats.unsigned}`);",
+                  "console.log(`🔐 Com assinaturas: ${stats.withSignatures}`);",
+                  "",
+                  "// Salvar estatísticas",
+                  "pm.globals.set('batch_stats', JSON.stringify(stats));",
+                  "",
+                  "if (stats.total > 0) {",
+                  "    console.log('🎉 Teste de lote bem-sucedido!');",
+                  "} else {",
+                  "    console.log('ℹ️ Nenhum documento encontrado para teste em lote');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/my-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "my-documents"
+              ]
+            },
+            "description": "Teste avançado para processamento em lote de documentos\\n\\n**Funcionalidades:**\\n- Análise estatística de documentos\\n- Validação de lotes\\n- Relatório detalhado de status\\n- Preparação para automação"
+          }
+        },
+        {
+          "name": "Performance & Load Test",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Performance test setup",
+                  "pm.globals.set('performance_start_time', Date.now());",
+                  "console.log('⚡ Iniciando teste de performance');",
+                  "",
+                  "// Verificar token",
+                  "const token = pm.globals.get('token');",
+                  "if (!token) {",
+                  "    throw new Error('❌ Token necessário para teste de performance');",
+                  "}",
+                  "",
+                  "console.log('✅ Setup de performance OK');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Calcular tempo de resposta",
+                  "const startTime = pm.globals.get('performance_start_time');",
+                  "const responseTime = Date.now() - startTime;",
+                  "",
+                  "pm.test('Resposta dentro do tempo esperado (<2s)', function () {",
+                  "    pm.expect(responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "pm.test('API responsiva', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});",
+                  "",
+                  "pm.test('Headers de performance presentes', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Length')).to.exist;",
+                  "});",
+                  "",
+                  "// Log de métricas de performance",
+                  "console.log('🎯 Métricas de Performance:');",
+                  "console.log('========================');",
+                  "console.log(`⏱️ Tempo total: ${responseTime}ms`);",
+                  "console.log(`🚀 Tempo Postman: ${pm.response.responseTime}ms`);",
+                  "console.log(`📦 Tamanho resposta: ${pm.response.headers.get('Content-Length') || 'N/A'} bytes`);",
+                  "console.log(`🌐 Status: ${pm.response.code} ${pm.response.status}`);",
+                  "",
+                  "// Classificação de performance",
+                  "let performance_rating;",
+                  "if (responseTime < 500) performance_rating = '🟢 Excelente';",
+                  "else if (responseTime < 1000) performance_rating = '🟡 Boa';",
+                  "else if (responseTime < 2000) performance_rating = '🟠 Aceitável';",
+                  "else performance_rating = '🔴 Lenta';",
+                  "",
+                  "console.log(`📊 Avaliação: ${performance_rating}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/my-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "my-documents"
+              ]
+            },
+            "description": "Teste de performance e carga da API\\n\\n**Avalia:**\\n- Tempo de resposta\\n- Throughput\\n- Latência\\n- Estabilidade\\n- Métricas detalhadas"
+          }
+        },
+        {
+          "name": "Error Scenarios - Invalid Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Erro 401 para credenciais inválidas', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Mensagem de erro retornada', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "console.log('✅ Teste de erro funcionando corretamente');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalid@test.com\",\n  \"password\": \"wrong_password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Testar cenário de erro - login com credenciais inválidas\n\nEste teste deve retornar erro 401 Unauthorized"
+          }
+        },
+        {
+          "name": "Error Scenarios - Unauthorized Access",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Erro 401 para acesso não autorizado', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Mensagem de erro retornada', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "console.log('✅ Proteção de endpoint funcionando');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/my-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "my-documents"
+              ]
+            },
+            "description": "Testar cenário de erro - acesso a endpoint protegido sem token\n\nEste teste deve retornar erro 401 Unauthorized"
+          }
+        }
+      ],
+      "description": "Cenários de teste e validação da API"
+    }
+  ]
+}

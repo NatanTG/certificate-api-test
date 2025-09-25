@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # API Principal
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: icp-brasil-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/icp_signatures
+      JWT_SECRET: ${JWT_SECRET:-sua_chave_jwt_super_secreta_aqui_mude_em_producao}
+      JWT_EXPIRES_IN: 24h
+      UPLOAD_PATH: /app/uploads
+      TEMP_PATH: /app/temp
+      LOGS_PATH: /app/logs
+      # URLs ICP-Brasil
+      AC_RAIZ_CRL_URL: http://acraiz.icpbrasil.gov.br/LCRacraiz.crl
+      SERPRO_CRL_URL: http://repositorio.serpro.gov.br/lcr/acserpro/acserpro.crl
+      CERTISIGN_CRL_URL: http://crl.certisign.com.br/certisignac.crl
+      SERASA_CRL_URL: http://crl.serasa.com.br/serasacd.crl
+      # Configurações de validação
+      CRL_CACHE_TIMEOUT: 3600
+      CERTIFICATE_VALIDATION_TIMEOUT: 30000
+      MAX_FILE_SIZE: 52428800
+      MAX_SIGNATURES_PER_DOCUMENT: 100
+      # Logs e auditoria
+      LOG_LEVEL: info
+      AUDIT_RETENTION_DAYS: 2555
+      MAX_LOG_FILES: 10
+      MAX_LOG_SIZE: 100000000
+    volumes:
+      - api_uploads:/app/uploads
+      - api_temp:/app/temp
+      - api_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - icp-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: icp-brasil-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: icp_signatures
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - icp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d icp_signatures"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432" # Remover em produção se não necessário
+
+  # pgAdmin para administração do banco
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: icp-brasil-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@icpbrasil.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_DISABLE_POSTFIX: "true"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./config/pgadmin/servers.json:/pgadmin4/servers.json
+    networks:
+      - icp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Nginx como Proxy Reverso
+  nginx:
+    image: nginx:alpine
+    container_name: icp-brasil-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Para certificados SSL se necessário
+      - api_logs:/var/log/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+      pgadmin:
+        condition: service_started
+    networks:
+      - icp-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis para Cache (opcional, para cache de CRLs)
+  redis:
+    image: redis:7-alpine
+    container_name: icp-brasil-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    networks:
+      - icp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Watchtower para atualizações automáticas (opcional)
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: icp-brasil-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 86400 --cleanup --include-stopped --revive-stopped
+    environment:
+      WATCHTOWER_NOTIFICATIONS: email
+      WATCHTOWER_NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-noreply@icpbrasil.local}
+      WATCHTOWER_NOTIFICATION_EMAIL_TO: ${NOTIFICATION_EMAIL_TO:-admin@icpbrasil.local}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER: ${SMTP_SERVER:-smtp.gmail.com}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: ${SMTP_PORT:-587}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: ${SMTP_USER:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD:-}
+    profiles:
+      - watchtower
+
+# Volumes persistentes
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  redis_data:
+    driver: local
+  api_uploads:
+    driver: local
+  api_temp:
+    driver: local
+  api_logs:
+    driver: local
+
+# Rede customizada
+networks:
+  icp-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

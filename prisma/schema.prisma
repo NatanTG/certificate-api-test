@@ -1,0 +1,93 @@
+// Schema do banco de dados para API de Assinatura Digital ICP-Brasil
+// Conforme especificações técnicas ITI (Instituto Nacional de Tecnologia da Informação)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum ValidationStatus {
+  PENDING
+  VALID
+  INVALID
+  REVOKED
+}
+
+// Tabela de usuários
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relacionamentos
+  documents    Document[]
+
+  @@map("users")
+}
+
+// Tabela de documentos
+model Document {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  filename         String
+  originalFilename String    @map("original_filename")
+  filePath         String    @map("file_path")
+  fileHash         String    @map("file_hash") // SHA-256 do arquivo original
+  fileSize         Int       @map("file_size")
+  mimeType         String    @map("mime_type")
+  uploadedAt       DateTime  @default(now()) @map("uploaded_at")
+
+  // Relacionamentos
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  icpSignatures    IcpSignature[]
+
+  @@map("documents")
+}
+
+// Tabela de assinaturas ICP-Brasil
+model IcpSignature {
+  id                        String           @id @default(cuid())
+  documentId                String           @map("document_id")
+  signatureData             String           @map("signature_data") // PKCS#7 em base64
+  signedDocumentData        String?          @map("signed_document_data") // Documento P7S completo em base64
+  certificateSubject        String           @map("certificate_subject")
+  certificateIssuer         String           @map("certificate_issuer")
+  certificateSerialNumber   String           @map("certificate_serial_number")
+  certificateNotBefore      DateTime         @map("certificate_not_before")
+  certificateNotAfter       DateTime         @map("certificate_not_after")
+  signerCpfCnpj             String?          @map("signer_cpf_cnpj") // extraído do certificado
+  signatureAlgorithm        String           @map("signature_algorithm")
+  hashAlgorithm             String           @map("hash_algorithm")
+  signedAt                  DateTime         @default(now()) @map("signed_at")
+  validationStatus          ValidationStatus @default(PENDING) @map("validation_status")
+  lastValidationAt          DateTime?        @map("last_validation_at")
+  validationErrors          Json?            @map("validation_errors")
+
+  // Relacionamentos
+  document                  Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  validationLogs            ValidationLog[]
+
+  @@map("icp_signatures")
+}
+
+// Tabela de logs de validação
+model ValidationLog {
+  id            String       @id @default(cuid())
+  signatureId   String       @map("signature_id")
+  validationType String      @map("validation_type") // 'chain', 'revocation', 'policy', etc.
+  isValid       Boolean      @map("is_valid")
+  errorMessage  String?      @map("error_message")
+  validatedAt   DateTime     @default(now()) @map("validated_at")
+  validatorInfo Json?        @map("validator_info")
+
+  // Relacionamentos
+  signature     IcpSignature @relation(fields: [signatureId], references: [id], onDelete: Cascade)
+
+  @@map("validation_logs")
+}
