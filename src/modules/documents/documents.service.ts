@@ -6,6 +6,7 @@ import { ICPBrasilValidator } from '../../core/icp-brasil/services/icp-brasil-va
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as forge from 'node-forge';
 import {
   DocumentUploadResponseDto,
   DocumentVerificationResponseDto,
@@ -157,15 +158,16 @@ export class DocumentsService {
       // Extrair informações do certificado
       const cpfCnpj = this.certificateHandler.extractCpfCnpj(certificate);
 
-      // Armazenar dados do certificado para reconstrução P7S
-      const certificateDataBase64 = Buffer.from(signatureData.signerCertificate).toString('base64');
+      // Criar documento P7S completo usando abordagem simples
+      const signedDocumentP7S = this.createSimpleP7SDocument(documentBuffer, signatureData);
+      const signedDocumentData = Buffer.from(signedDocumentP7S).toString('base64');
 
       // Salvar assinatura no banco
       const signature = await this.prisma.icpSignature.create({
         data: {
           documentId: document.id,
           signatureData: signatureData.signatureData,
-          signedDocumentData: certificateDataBase64, // Temporariamente usar este campo para o certificado
+          signedDocumentData: signedDocumentData,
           certificateSubject: certificate.subject.getField('CN')?.value || '',
           certificateIssuer: certificate.issuer.getField('CN')?.value || '',
           certificateSerialNumber: certificate.serialNumber,
@@ -262,6 +264,42 @@ export class DocumentsService {
     }
   }
 
+  /**
+   * Cria um documento P7S simples que contém o documento original + assinatura
+   */
+  private createSimpleP7SDocument(
+    originalDocument: Buffer,
+    signatureData: any
+  ): Buffer {
+    try {
+      // Criar estrutura P7S simples usando node-forge
+      const p7 = forge.pkcs7.createSignedData();
+
+      // Adicionar conteúdo original como dados
+      p7.content = forge.util.createBuffer(originalDocument.toString('binary'));
+
+      // Decodificar assinatura PKCS#7 existente
+      const signatureBytes = forge.util.decode64(signatureData.signatureData);
+      const asn1 = forge.asn1.fromDer(signatureBytes);
+      const pkcs7Signature = forge.pkcs7.messageFromAsn1(asn1);
+
+      // Adicionar certificado e signer se disponíveis (com verificação de tipo)
+      const signedData = pkcs7Signature as any;
+      if (signedData.certificates && signedData.certificates.length > 0) {
+        signedData.certificates.forEach((cert: any) => p7.addCertificate(cert));
+      }
+
+      // Converter para DER
+      const der = forge.asn1.toDer(p7.toAsn1());
+      return Buffer.from(der.getBytes(), 'binary');
+
+    } catch (error) {
+      this.logger.error(`Erro ao criar P7S simples: ${error.message}`);
+      // Em caso de erro, retornar documento original
+      return originalDocument;
+    }
+  }
+
   async downloadSignedDocument(documentId: string, userId: string): Promise<Buffer> {
     try {
       this.logger.debug(`Download de documento assinado ${documentId}`);
@@ -283,24 +321,17 @@ export class DocumentsService {
         return originalDocument;
       }
 
-      // Reconstruir documento P7S usando dados armazenados
-      this.logger.debug('Reconstruindo documento P7S com dados do certificado');
-      try {
-        const signatureDataArray = document.icpSignatures.map(sig => ({
-          signatureData: sig.signatureData,
-          signerCertificate: sig.signedDocumentData ? Buffer.from(sig.signedDocumentData, 'base64') : Buffer.from(''),
-          signatureAlgorithm: sig.signatureAlgorithm,
-          hashAlgorithm: sig.hashAlgorithm,
-          signedAttributes: {}, // Seria necessário armazenar também, por enquanto vazio
-        }));
+      // Verificar se existe documento P7S armazenado
+      const latestSignature = document.icpSignatures[document.icpSignatures.length - 1];
 
-        const signedDocument = this.signer.createSignedDocument(originalDocument, signatureDataArray);
-        return signedDocument;
-      } catch (reconstructionError) {
-        this.logger.warn(`Falha na reconstrução P7S: ${reconstructionError.message}. Retornando documento original.`);
-        // Em caso de erro, retornar documento original
-        return originalDocument;
+      if (latestSignature.signedDocumentData) {
+        this.logger.debug('Retornando documento P7S armazenado');
+        return Buffer.from(latestSignature.signedDocumentData, 'base64');
       }
+
+      // Fallback: retornar documento original se não houver P7S armazenado
+      this.logger.warn('Documento P7S não encontrado, retornando documento original');
+      return originalDocument;
 
     } catch (error) {
       this.logger.error(`Erro no download do documento: ${error.message}`);

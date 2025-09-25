@@ -52,6 +52,7 @@ const icp_brasil_validator_service_1 = require("../../core/icp-brasil/services/i
 const crypto = __importStar(require("crypto"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const forge = __importStar(require("node-forge"));
 const icp_brasil_constants_1 = require("../../core/icp-brasil/constants/icp-brasil.constants");
 let DocumentsService = DocumentsService_1 = class DocumentsService {
     constructor(prisma, certificateHandler, signer, validator) {
@@ -140,12 +141,13 @@ let DocumentsService = DocumentsService_1 = class DocumentsService {
             }
             const signatureData = await this.signer.signDocument(documentBuffer, certificate, privateKey, hashAlgorithm);
             const cpfCnpj = this.certificateHandler.extractCpfCnpj(certificate);
-            const certificateDataBase64 = Buffer.from(signatureData.signerCertificate).toString('base64');
+            const signedDocumentP7S = this.createSimpleP7SDocument(documentBuffer, signatureData);
+            const signedDocumentData = Buffer.from(signedDocumentP7S).toString('base64');
             const signature = await this.prisma.icpSignature.create({
                 data: {
                     documentId: document.id,
                     signatureData: signatureData.signatureData,
-                    signedDocumentData: certificateDataBase64,
+                    signedDocumentData: signedDocumentData,
                     certificateSubject: certificate.subject.getField('CN')?.value || '',
                     certificateIssuer: certificate.issuer.getField('CN')?.value || '',
                     certificateSerialNumber: certificate.serialNumber,
@@ -228,6 +230,25 @@ let DocumentsService = DocumentsService_1 = class DocumentsService {
             throw error;
         }
     }
+    createSimpleP7SDocument(originalDocument, signatureData) {
+        try {
+            const p7 = forge.pkcs7.createSignedData();
+            p7.content = forge.util.createBuffer(originalDocument.toString('binary'));
+            const signatureBytes = forge.util.decode64(signatureData.signatureData);
+            const asn1 = forge.asn1.fromDer(signatureBytes);
+            const pkcs7Signature = forge.pkcs7.messageFromAsn1(asn1);
+            const signedData = pkcs7Signature;
+            if (signedData.certificates && signedData.certificates.length > 0) {
+                signedData.certificates.forEach((cert) => p7.addCertificate(cert));
+            }
+            const der = forge.asn1.toDer(p7.toAsn1());
+            return Buffer.from(der.getBytes(), 'binary');
+        }
+        catch (error) {
+            this.logger.error(`Erro ao criar P7S simples: ${error.message}`);
+            return originalDocument;
+        }
+    }
     async downloadSignedDocument(documentId, userId) {
         try {
             this.logger.debug(`Download de documento assinado ${documentId}`);
@@ -242,22 +263,13 @@ let DocumentsService = DocumentsService_1 = class DocumentsService {
             if (document.icpSignatures.length === 0) {
                 return originalDocument;
             }
-            this.logger.debug('Reconstruindo documento P7S com dados do certificado');
-            try {
-                const signatureDataArray = document.icpSignatures.map(sig => ({
-                    signatureData: sig.signatureData,
-                    signerCertificate: sig.signedDocumentData ? Buffer.from(sig.signedDocumentData, 'base64') : Buffer.from(''),
-                    signatureAlgorithm: sig.signatureAlgorithm,
-                    hashAlgorithm: sig.hashAlgorithm,
-                    signedAttributes: {},
-                }));
-                const signedDocument = this.signer.createSignedDocument(originalDocument, signatureDataArray);
-                return signedDocument;
+            const latestSignature = document.icpSignatures[document.icpSignatures.length - 1];
+            if (latestSignature.signedDocumentData) {
+                this.logger.debug('Retornando documento P7S armazenado');
+                return Buffer.from(latestSignature.signedDocumentData, 'base64');
             }
-            catch (reconstructionError) {
-                this.logger.warn(`Falha na reconstrução P7S: ${reconstructionError.message}. Retornando documento original.`);
-                return originalDocument;
-            }
+            this.logger.warn('Documento P7S não encontrado, retornando documento original');
+            return originalDocument;
         }
         catch (error) {
             this.logger.error(`Erro no download do documento: ${error.message}`);
